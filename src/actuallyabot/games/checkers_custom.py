@@ -20,22 +20,28 @@ def make(url: str | None = None) -> Game:
         name="checkers_custom",
         url=url or "https://cua-checkers.onrender.com/",
         instruction=(
-            "You are playing checkers as RED. Your red pieces are on the bottom "
-            "three rows (rows 1, 2, 3). The status panel on the side shows whose "
-            "turn it is.\n\n"
-            "IMPORTANT — only pieces with an EMPTY square diagonally forward of "
-            "them can move. On the first move, that means only pieces in row 3 "
-            "(a3, c3, e3, or g3) — the row-1 and row-2 pieces are blocked by "
-            "your own pieces in front of them and CANNOT move yet.\n\n"
-            "Make ONE legal move:\n"
-            "1. Click a piece in row 3 (a3, c3, e3, or g3). After your click "
-            "you should see the square highlighted in yellow.\n"
-            "2. Then click the destination square: one row up and one column "
-            "left or right (diagonally forward into an empty dark square).\n"
-            "3. After the move completes, stop. Do not click further.\n\n"
-            "If you click and nothing highlights in yellow, the click missed — "
-            "try again. If a square is highlighted yellow, do NOT click it "
-            "again; click the destination instead."
+            "You are playing American checkers as RED against an opponent. "
+            "Each turn, a list of LEGAL MOVES with exact pixel coordinates is "
+            "appended to this prompt — pick ONE move from that list, then "
+            "click the source pixel, then click the destination pixel, then "
+            "stop. Two clicks per turn.\n\n"
+            "STRATEGY — pick the move using these priorities, in order:\n"
+            "1. CAPTURES FIRST. If any move is marked [CAPTURE], take it. "
+            "Captures are mandatory in American checkers and remove an "
+            "opponent's piece from the board.\n"
+            "2. ADVANCE toward row 8. A red piece that reaches row 8 is "
+            "promoted to a king (much more powerful — can move backward too). "
+            "Prefer moves that advance to higher row numbers (4 > 3 > 2).\n"
+            "3. AVOID GETTING CAPTURED. Don't move into a square where the "
+            "opponent can immediately jump you on their next turn. A piece is "
+            "vulnerable if a black piece sits diagonally adjacent and the "
+            "square BEHIND your piece (relative to that black piece) is empty.\n"
+            "4. KEEP PIECES PAIRED. Pieces protect each other when adjacent "
+            "diagonally.\n"
+            "5. DON'T RUSH THE BACK ROW. Pieces in row 1 (a1, c1, e1, g1) "
+            "block opponent kings — keep them as long as practical.\n\n"
+            "If two clicks don't visibly land on a piece + empty destination, "
+            "stop and let the next turn re-prompt with fresh coordinates."
         ),
         # It's our turn when the #status element's class matches our color.
         # Returns true if status div has class "red".
@@ -116,5 +122,5 @@ def make(url: str | None = None) -> Game:
             return lines.join('\\n');
         """,
         max_turn_steps=10,
-        poll_interval_s=1.0,
+        poll_interval_s=0.3,
     )
