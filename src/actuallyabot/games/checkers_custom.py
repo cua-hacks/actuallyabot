@@ -1,10 +1,16 @@
-"""Adapter for the bespoke streamable-checkers UI (built in a separate repo).
+"""Adapter for the bespoke CUA-checkers UI.
 
-TODO: confirm against the real UI when it lands. The fields below are best-guess
-defaults that should work if the UI is built CUA-friendly (clean DOM, single
-board element, turn indicator, game-over banner).
+URL: https://cua-checkers-production.up.railway.app/
 
-Override URL via env GAME_URL_OVERRIDE or --url flag.
+Selectors verified live:
+- Role:     [data-testid="role-header"]   text "YOU ARE RED" / "YOU ARE BLACK"
+- Turn:     #status                       class is "black" or "red" + text "<COLOR> TO MOVE"
+- Squares:  [data-square="<alg>"]         id="sq-<alg>"; data-piece="empty"|"red"|"black"|kings
+- Buttons:  #reset (New Game), #undo, #copy-state
+
+Role assignment: WebSocket join order. First to connect = RED, second = BLACK.
+The agent launches first → it plays RED. RED moves first in standard checkers
+so the agent makes the opening move.
 """
 from .base import Game
 
@@ -12,27 +18,32 @@ from .base import Game
 def make(url: str | None = None) -> Game:
     return Game(
         name="checkers_custom",
-        url=url or "https://example.invalid/checkers",  # replaced when URL is known
+        url=url or "https://cua-checkers-production.up.railway.app/",
         instruction=(
-            "You are playing checkers as the BLACK pieces against an opponent. "
-            "Look at the board and make ONE legal move by dragging one of your "
-            "black pieces diagonally forward to an adjacent empty dark square, "
-            "or by clicking the piece and then clicking the destination square. "
-            "Make exactly one move and then stop."
+            "You are playing checkers as the RED pieces. The board is in the "
+            "center of the screen with squares labeled a-h horizontally and 1-8 "
+            "vertically. The status panel on the side shows whose turn it is. "
+            "Make ONE legal move: click one of your red pieces and then click "
+            "the destination square (diagonally forward to an adjacent empty "
+            "dark square, or further if it's a capture). After your move "
+            "completes, stop."
         ),
-        # Defaults below are placeholders. When the custom UI lands, point these
-        # at the real selectors / data attributes.
+        # It's our turn when the #status element's class matches our color.
+        # Returns true if status div has class "red".
         is_our_turn_js="""
-            const t = document.querySelector('[data-turn], [data-active-player], .turn-indicator');
-            if (!t) return true;  // no indicator ⇒ assume our turn
-            const v = (t.dataset.turn || t.dataset.activePlayer || t.textContent || '').toLowerCase();
-            return v.includes('black') || v.includes('you');
+            const s = document.getElementById('status');
+            if (!s) return false;
+            return s.classList.contains('red');
         """,
+        # Game-over when the status text mentions a winner or draw. This is a
+        # heuristic — refine once we observe the actual game-end DOM.
         game_over_js="""
-            const g = document.querySelector('[data-game-over], .game-over, .winner');
-            return !!g;
+            const s = document.getElementById('status');
+            if (!s) return false;
+            const t = (s.innerText || '').toUpperCase();
+            return /WINS|WINNER|DRAW|GAME OVER/.test(t);
         """,
-        state_extractor_js="",  # fill once the custom UI exposes a state hook
+        state_extractor_js="",  # streamer reads state from the game's REST/WS API
         max_turn_steps=15,
-        poll_interval_s=1.5,
+        poll_interval_s=1.0,
     )
