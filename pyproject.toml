@@ -8,6 +8,7 @@ dependencies = [
     "tzafon",
     "httpx",
     "python-dotenv",
+    "websocket-client",
 ]
 
 [project.optional-dependencies]
@@ -15,6 +16,9 @@ dev = ["ruff", "pytest"]
 
 [project.scripts]
 actuallyabot = "actuallyabot.main:cli"
+streambot-youtube = "streambot.run_youtube_stream:main"
+streambot-events = "streambot.event_server:main"
+streambot-checkers-youtube = "streambot.run_checkers_youtube:main"
 
 [build-system]
 requires = ["hatchling"]

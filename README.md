@@ -1,8 +1,8 @@
 # actuallyabot
 
 Player half of an AI-streamer system. A Northstar agent runs inside a Kernel
-browser sandbox and plays games (starting with checkers). Streaming, OBS,
-Twitch, and commentary live in a separate repo.
+browser sandbox and plays games (starting with checkers). `src/streambot`
+contains the OBS/YouTube control path for streaming that session.
 
 ## Architecture
 
@@ -10,8 +10,8 @@ Twitch, and commentary live in a separate repo.
 this repo                                          (separate repos)
 ┌──────────────────────────────────┐               ┌─────────────────────────────┐
 │ Kernel browser session           │               │ Streamer VM                 │
-│  └─ game tab                     │ live_view ──► │  └─ OBS Browser Source ─────┼──► Twitch
-│ Northstar action loop ───────────┤  CDP attach   │  └─ commentary / scenes     │
+│  └─ game tab                     │ live_view ──► │  └─ OBS Browser Source ─────┼──► YouTube
+│ Northstar action loop ───────────┤  CDP attach   │  └─ streambot / OBS API     │
 │ orchestrator.play (game-agnostic)│ event POSTs ► │ /events endpoint            │
 │ games/<name>.py adapter          │               │                             │
 └──────────────────────────────────┘               └─────────────────────────────┘
@@ -37,6 +37,32 @@ uv venv && source .venv/bin/activate
 uv pip install -e .
 cp .env.example .env  # add KERNEL_API_KEY + TZAFON_API_KEY
 actuallyabot --game placeholder --url https://example.com
+```
+
+## Stream checkers to YouTube with OBS
+
+OBS must be running locally with the WebSocket server enabled
+(`Tools -> WebSocket Server Settings`, default port `4455`). Put
+`OBS_WS_PASSWORD` and `STREAM_KEY` in `.env`; do not commit real keys.
+
+One-command path for the current checkers stream:
+
+```bash
+uv run streambot-checkers-youtube
+```
+
+That command starts a local event endpoint, launches
+`actuallyabot --game checkers_custom`, reads the Kernel `live_view_url` from the
+player logs, creates/updates OBS Browser Source scenes, configures YouTube RTMP,
+starts streaming, and switches scenes through OBS WebSocket on `turn_start`,
+`turn_end`, and `game_over` events.
+
+Manual wiring:
+
+```bash
+uv run streambot-events --host 127.0.0.1 --port 8765
+STREAMER_EVENT_ENDPOINT=http://127.0.0.1:8765/events uv run actuallyabot --game checkers_custom
+uv run streambot-youtube --player-live-view-url 'https://...'
 ```
 
 ## Adding a game
