@@ -38,7 +38,7 @@ player's logs. Commentary is logged as `[commentary] ...` /
 
 - **Turn events** — fires on `turn_end` with `reason=stop_signal` (a real
   move was made) and on `game_over`. Failed/stuck turns are skipped.
-- **Filler** — every 3–5s of dead air (capped at 3 consecutive fillers
+- **Filler** — every 6–14s of dead air (capped at 3 consecutive fillers
   before it shuts up until the next real event), so the agent gets to dunk
   on the opponent's slow play without droning forever.
 

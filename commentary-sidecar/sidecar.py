@@ -42,8 +42,8 @@ ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "HaUDdkOAoitiVjpiet1
 GROK_MODEL = os.environ.get("GROK_MODEL", "grok-4-fast-non-reasoning")
 ELEVENLABS_MODEL = os.environ.get("ELEVENLABS_MODEL", "eleven_flash_v2_5")
 
-FILLER_INTERVAL_MIN_S = 3.0
-FILLER_INTERVAL_MAX_S = 5.0
+FILLER_INTERVAL_MIN_S = 6.0
+FILLER_INTERVAL_MAX_S = 14.0
 SILENCE_AFTER_REAL_S = 6.0      # don't fire filler within N seconds of a real event
 MAX_CONSECUTIVE_FILLERS = 3     # then go silent until next real event
 
@@ -55,26 +55,32 @@ PLAYER_AUDIO = (
 )
 
 SYSTEM_PROMPT = """You are an AI checkers agent live-streaming the game on Twitch.
-Narrate IN FIRST PERSON, as the player making the moves. Match this energy:
+Narrate IN FIRST PERSON, as the player making the moves. The opponent is
+NOT in the room with you — you're talking ABOUT them to the chat / camera,
+not TO them. Match this energy:
 
   * Witty, toxic-but-playful, streamer slang. Trash talk the opponent.
+  * NEVER use "you" or "your" to address the opponent. Refer to them in
+    THIRD PERSON: "he", "him", "his", "this guy", "this dude", "bro",
+    "my opp", "this clown", "the goon". You can address the chat with "y'all"
+    or "chat" if you want, but the opponent is always third person.
   * 1 short sentence, 8-18 words. Never longer. NEVER more than one sentence.
   * Lowercase, casual. Use slang naturally: ez, ggez, free, washed, cooked,
     locked in, on god, no cap, ratio, mid, get clipped, skill issue, L,
     sit down, couldn't be me, watch this, calm down it's just checkers.
   * React to WHAT JUST HAPPENED or to the WAIT. Don't be generic.
-  * If you captured: gloat. If you advanced: confident. If a move failed:
-    cope. If you're waiting on opp: get impatient/dunk on their slow play.
+  * If I captured: gloat. If I advanced: confident. If a move failed:
+    cope. If I'm waiting on opp: dunk on his slow play.
 
-Examples (riff, don't copy):
-  - "ez clap, free piece in the bag"
-  - "yo i didn't even need to try, this dude is washed"
-  - "watch this, i'm cooking him slowly"
-  - "calm down it's just checkers... but also i'm him"
+Examples (riff, don't copy — note the third-person opponent):
+  - "ez clap, free piece in the bag, this guy is washed"
+  - "yo i didn't even need to try, bro is COOKED"
+  - "watch this chat, i'm cooking him slowly"
   - "skill issue on his end ngl"
-  - "lmao back row about to be MINE"
+  - "lmao back row about to be MINE, this dude is finished"
   - "bro pick a move already, my battery is dying"
-  - "did he afk? hello? anyone home?"
+  - "did he afk? hello? anyone home in there?"
+  - "this clown took 12 seconds to give me a free piece, ratio"
 
 Output ONLY the commentary line. No quotes, no labels, no explanation."""
 
@@ -84,6 +90,7 @@ audio_queue: queue.Queue[str | None] = queue.Queue()
 state_lock = threading.Lock()
 last_real_event_ts: float = 0.0
 consecutive_fillers: int = 0
+agent_mid_turn: bool = False   # True between turn_start and turn_end
 
 
 def _grok(user_msg: str) -> str | None:
@@ -222,6 +229,9 @@ def filler_loop() -> None:
         with state_lock:
             since_real = time.time() - last_real_event_ts
             cap_hit = consecutive_fillers >= MAX_CONSECUTIVE_FILLERS
+            mid_turn = agent_mid_turn
+        if mid_turn:
+            continue  # don't talk while we're actively making a move
         if since_real < SILENCE_AFTER_REAL_S:
             continue
         if cap_hit:
@@ -239,7 +249,7 @@ def filler_loop() -> None:
 
 
 def main() -> None:
-    global last_real_event_ts, consecutive_fillers
+    global last_real_event_ts, consecutive_fillers, agent_mid_turn
 
     print(
         f"[commentary-sidecar] up. grok={'ok' if XAI_API_KEY else 'MISSING'} "
@@ -261,6 +271,18 @@ def main() -> None:
         event = parse_event_line(line)
         if event is None:
             continue
+
+        # Track "agent is in the middle of a move" so fillers don't fire
+        # while we're actively clicking through the move sequence.
+        etype = event.get("type")
+        if etype == "turn_start":
+            with state_lock:
+                agent_mid_turn = True
+            continue
+        if etype == "turn_end":
+            with state_lock:
+                agent_mid_turn = False
+
         if not should_commentate_turn(event):
             continue
 
