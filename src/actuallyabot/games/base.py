@@ -21,6 +21,10 @@ class Game:
     is_our_turn_js: str = ""         # returns boolean; absent ⇒ always true
     game_over_js: str = ""           # returns boolean; absent ⇒ never
     state_extractor_js: str = ""     # returns JSON-serializable state for events
+    # JS body returning a string of extra instruction text to append at each
+    # turn. Useful for surfacing live game state (e.g. legal-move coordinates)
+    # to Northstar so it doesn't have to derive them from the screenshot.
+    pre_turn_js: str = ""
     # Per-turn limits for the inner Northstar loop.
     max_turn_steps: int = 12
     poll_interval_s: float = 1.0     # how often to poll IS_OUR_TURN / GAME_OVER

@@ -53,12 +53,23 @@ def play(
         # Take one Northstar turn.
         publisher.emit_sync("turn_start", {"turn": turn})
 
+        # Compose the per-turn instruction. Optional pre_turn_js can append
+        # live state (e.g. concrete pixel coords of legal moves).
+        instruction = game.instruction
+        if game.pre_turn_js:
+            try:
+                extras = dom.evaluate(k, session_id, game.pre_turn_js)
+                if extras:
+                    instruction = f"{instruction}\n\n{extras}"
+            except Exception as e:
+                print(f"[orchestrator] pre_turn extras failed (continuing): {e}")
+
         def on_step(step_idx: int, action) -> None:
             print(f"  [turn {turn} step {step_idx}] {action.type} {action.model_dump(mode='json')}")
 
         result = loop.run(
             k=k, tz=tz, session_id=session_id,
-            instruction=game.instruction,
+            instruction=instruction,
             viewport=viewport,
             max_steps=game.max_turn_steps,
             should_stop=(
