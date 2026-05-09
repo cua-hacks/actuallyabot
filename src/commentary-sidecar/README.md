@@ -3,18 +3,16 @@
 Standalone narrator that listens to `actuallyabot`'s stdout, asks Grok for
 first-person trash-talk reactions, and speaks them via ElevenLabs.
 
-Lives in this repo for convenience while the streamer-side service doesn't
-exist yet — designed to be lifted into its own repo when that lands. No
-imports from `src/actuallyabot`; the only contract is the JSON event lines
-the player writes to stdout.
+Has no imports from any other package in this repo; the only contract is
+the JSON event lines the player writes to stdout. Independent from the
+`src/streambot` HTTP-event consumer — they can run together or apart.
 
 ## Setup
 
 ```bash
-cd commentary-sidecar
-cp .env.example .env  # fill in XAI_API_KEY + ELEVENLABS_API_KEY
-# Reuse the parent project's venv (already has httpx + python-dotenv):
-source ../.venv/bin/activate
+cp src/commentary-sidecar/.env.example src/commentary-sidecar/.env
+# fill in XAI_API_KEY + ELEVENLABS_API_KEY in that .env
+source .venv/bin/activate
 ```
 
 No additional pip installs needed — `httpx` and `python-dotenv` are already
@@ -27,7 +25,7 @@ Pipe the player's output into the sidecar:
 ```bash
 python -u -m actuallyabot.main --game checkers_custom \
     --url "https://cua-checkers.onrender.com/?game=$(date +%s)" 2>&1 \
-  | python -u commentary-sidecar/sidecar.py
+  | python -u src/commentary-sidecar/sidecar.py
 ```
 
 The sidecar passes every line through to its stdout, so you still see the
